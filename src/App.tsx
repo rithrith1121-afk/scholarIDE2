@@ -12,7 +12,7 @@ import HelpView from './views/HelpView';
 import SettingsView from './views/SettingsView';
 import OnboardingView from './views/OnboardingView';
 import { ToastContainer, ToastType } from './components/Toast';
-import { generateProblem, generateHelp, executeCode, evaluateCode } from './services/groqService';
+import { generateProblem, generateHelp, evaluateCodeFeedback } from './services/groqService';
 import { executeCode as executeCodeJudge0, executeBatch as executeBatchJudge0 } from './services/judge0Service';
 import { Problem, HistoryItem, Settings, defaultSettings, UserStats, defaultUserStats, TestCaseResult } from './types';
 import { Loader2 } from 'lucide-react';
@@ -56,7 +56,10 @@ export default function App() {
   const [helpContent, setHelpContent] = useState<string | null>(null);
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
 
-  const getTodayString = () => new Date().toISOString().split('T')[0];
+  const getTodayString = () => {
+    const today = new Date();
+    return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  };
 
   // Streak Verification on mount
   useEffect(() => {
@@ -84,9 +87,9 @@ export default function App() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Sync to localStorage
   useEffect(() => {
-    localStorage.setItem('history', JSON.stringify(history));
+    const limitedHistory = history.slice(0, 50); // Keep max 50 items
+    localStorage.setItem('history', JSON.stringify(limitedHistory));
   }, [history]);
 
   useEffect(() => {
@@ -159,12 +162,27 @@ export default function App() {
     if (!problemData) return;
     
     setIsRunning(true);
+    setActiveTab('results');
+    setTestResults([]);
+    
     try {
-      const evaluation = await evaluateCode(problemData, userCode, settings.language);
-      const isMockPassed = evaluation.passed;
-      setTestResults(evaluation.testResults);
+      // 1. Strict Deterministic Evaluation using Judge0 Sandbox
+      const inputs = problemData.examples.map(ex => ex.input);
+      const batchResults = await executeBatchJudge0(userCode, settings.language, inputs);
       
-      if (isMockPassed) {
+      const mappedResults: TestCaseResult[] = batchResults.map((res, i) => {
+        const expected = problemData.examples[i].output;
+        const passed = res.actualOutput.trim() === expected.trim();
+        return { ...res, expectedOutput: expected, passed };
+      });
+      
+      const isPassed = mappedResults.every(r => r.passed);
+      setTestResults(mappedResults);
+
+      // 2. Fetch AI Feedback based on actual deterministic execution
+      const aiFeedback = await evaluateCodeFeedback(problemData, settings.language, userCode, isPassed, mappedResults);
+      
+      if (isPassed) {
         setUserStats(prev => {
           const today = getTodayString();
           let newStreak = prev.streak;
@@ -193,22 +211,22 @@ export default function App() {
             lastSolvedDate: today,
           };
         });
-        showToast('Challenge Passed! Stats updated.', 'success');
+        showToast(aiFeedback.feedback || 'Challenge Passed! Stats updated.', 'success');
       } else {
-        showToast(evaluation.feedback || 'Challenge Failed. Keep trying!', 'error');
+        showToast(aiFeedback.feedback || 'Challenge Failed. Keep trying!', 'error');
       }
 
       const newHistoryItem: HistoryItem = {
         id: crypto.randomUUID(),
         problem: problemData,
-        status: isMockPassed ? 'Passed' : 'Failed',
+        status: isPassed ? 'Passed' : 'Failed',
         timestamp: Date.now(),
         language: settings.language,
         userCode: userCode,
       };
       
-      setHistory(prev => [newHistoryItem, ...prev]);
-      if (isMockPassed) {
+      setHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]); // Keep history bounded to 50 items
+      if (isPassed) {
         setCurrentView('history');
       }
     } catch (error) {

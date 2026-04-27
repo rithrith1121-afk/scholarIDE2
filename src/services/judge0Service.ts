@@ -1,8 +1,5 @@
 import { Settings, TestCaseResult } from '../types';
 
-const JUDGE0_URL = import.meta.env.VITE_JUDGE0_URL || 'https://ce.judge0.com';
-const JUDGE0_API_KEY = import.meta.env.VITE_JUDGE0_API_KEY || ''; // Optional for self-hosted
-
 const LANGUAGE_MAP: Record<Settings['language'], number> = {
   python: 71,
   java: 62,
@@ -24,7 +21,6 @@ export interface Judge0Result {
   memory: number;
 }
 
-// Helper to handle Unicode with Base64
 const encodeBase64 = (str: string) => {
   return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
     return String.fromCharCode(parseInt(p1, 16));
@@ -37,7 +33,7 @@ const decodeBase64 = (str: string) => {
       return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
   } catch (e) {
-    return atob(str); // Fallback for non-unicode
+    return atob(str);
   }
 };
 
@@ -45,14 +41,9 @@ export async function executeCode(code: string, language: Settings['language'], 
   const languageId = LANGUAGE_MAP[language];
   
   try {
-    // 1. Create Submission
-    const response = await fetch(`${JUDGE0_URL}/submissions?base64_encoded=true&wait=false`, {
+    const response = await fetch(`/api/judge0/submissions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-RapidAPI-Key': JUDGE0_API_KEY,
-        'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com', // Only needed for RapidAPI
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         source_code: encodeBase64(code),
         language_id: languageId,
@@ -63,27 +54,17 @@ export async function executeCode(code: string, language: Settings['language'], 
     const data = await response.json();
     const token = data.token;
 
-    if (!token) {
-      throw new Error('Failed to get submission token from Judge0');
-    }
+    if (!token) throw new Error('Failed to get submission token from Judge0');
 
-    // 2. Poll for Result
     let result: Judge0Result | null = null;
     while (true) {
-      const statusResponse = await fetch(`${JUDGE0_URL}/submissions/${token}?base64_encoded=true`, {
-        headers: {
-          'X-RapidAPI-Key': JUDGE0_API_KEY,
-        }
-      });
+      const statusResponse = await fetch(`/api/judge0/submissions/${token}`);
       result = await statusResponse.json();
 
-      if (result && result.status.id > 2) { // 1: In Queue, 2: Processing
-        break;
-      }
+      if (result && result.status.id > 2) break;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    // 3. Process Result
     const stdout = result?.stdout ? decodeBase64(result.stdout) : '';
     const stderr = result?.stderr ? decodeBase64(result.stderr) : '';
     const compile_output = result?.compile_output ? decodeBase64(result.compile_output) : '';
@@ -93,7 +74,7 @@ export async function executeCode(code: string, language: Settings['language'], 
     output += stdout;
     
     let errors = stderr || compile_output || message;
-    if (result?.status.id !== 3) { // 3: Accepted
+    if (result?.status.id !== 3) {
       errors = `Status: ${result?.status.description}\n${errors}`;
     }
 
@@ -108,13 +89,9 @@ export async function executeBatch(code: string, language: Settings['language'],
   const languageId = LANGUAGE_MAP[language];
   
   try {
-    // 1. Create Batch Submission
-    const response = await fetch(`${JUDGE0_URL}/submissions/batch?base64_encoded=true`, {
+    const response = await fetch(`/api/judge0/submissions/batch`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-RapidAPI-Key': JUDGE0_API_KEY,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         submissions: inputs.map(input => ({
           source_code: encodeBase64(code),
@@ -127,18 +104,11 @@ export async function executeBatch(code: string, language: Settings['language'],
     const submissions = await response.json();
     const tokens = submissions.map((s: any) => s.token);
 
-    if (!tokens || tokens.length === 0) {
-      throw new Error('Failed to get submission tokens from Judge0');
-    }
+    if (!tokens || tokens.length === 0) throw new Error('Failed to get submission tokens from Judge0');
 
-    // 2. Poll for All Results
     let results: any[] = [];
     while (true) {
-      const statusResponse = await fetch(`${JUDGE0_URL}/submissions/batch?tokens=${tokens.join(',')}&base64_encoded=true`, {
-        headers: {
-          'X-RapidAPI-Key': JUDGE0_API_KEY,
-        }
-      });
+      const statusResponse = await fetch(`/api/judge0/submissions/batch/status?tokens=${tokens.join(',')}`);
       const data = await statusResponse.json();
       results = data.submissions;
 
@@ -148,7 +118,6 @@ export async function executeBatch(code: string, language: Settings['language'],
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    // 3. Process Results
     return results.map((result, index) => {
       const stdout = result.stdout ? decodeBase64(result.stdout) : '';
       const stderr = result.stderr ? decodeBase64(result.stderr) : '';
@@ -158,9 +127,9 @@ export async function executeBatch(code: string, language: Settings['language'],
       const actualOutput = stdout.trim();
       return {
         input: inputs[index],
-        expectedOutput: '', // Will be filled by App.tsx
+        expectedOutput: '', // Filled by App.tsx
         actualOutput: actualOutput || stderr || compile_output || message,
-        passed: false, // Will be filled by App.tsx
+        passed: false, // Filled by App.tsx
       };
     });
   } catch (error: any) {
