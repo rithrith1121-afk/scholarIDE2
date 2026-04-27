@@ -13,7 +13,7 @@ function expressPlugin() {
     configureServer(server: any) {
       const app = express();
       app.use(express.json());
-      app.use(apiRouter);
+      app.use('/api', apiRouter);
       server.middlewares.use(app);
     }
   };

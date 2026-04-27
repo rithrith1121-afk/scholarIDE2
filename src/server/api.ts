@@ -12,9 +12,23 @@ const groq = new Groq({
 
 const model = 'llama-3.3-70b-versatile';
 
-router.post('/api/generate-problem', async (req, res) => {
+// Health check to debug environment variables on Netlify
+router.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    hasGroqKey: !!(process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY),
+    nodeVersion: process.version
+  });
+});
+
+router.post('/generate-problem', async (req, res) => {
   try {
     const { difficulty } = req.body;
+    
+    if (!(process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY)) {
+      return res.status(500).json({ error: 'Missing GROQ API KEY on server' });
+    }
+
     const completion = await groq.chat.completions.create({
       messages: [
         {
@@ -37,13 +51,7 @@ router.post('/api/generate-problem', async (req, res) => {
             "starterCode": {
               "python": "string", "java": "string", "cpp": "string", "c": "string", "javascript": "string"
             }
-          }
-          
-          Language Rules:
-          - C: Use stdio.h, proper main() function, and printf/scanf.
-          - JavaScript: Use Node.js environment style, console.log for output, and avoid browser-specific APIs.
-          - Python/Java/C++: Follow standard industry best practices.
-          - Examples: Provide at least 4 diverse test cases (basic, edge case, large input, etc.).`
+          }`
         },
         {
           role: 'user',
@@ -66,7 +74,7 @@ router.post('/api/generate-problem', async (req, res) => {
   }
 });
 
-router.post('/api/generate-help', async (req, res) => {
+router.post('/generate-help', async (req, res) => {
   try {
     const { problem, userCode } = req.body;
     const completion = await groq.chat.completions.create({
@@ -93,7 +101,7 @@ router.post('/api/generate-help', async (req, res) => {
   }
 });
 
-router.post('/api/evaluate-feedback', async (req, res) => {
+router.post('/evaluate-feedback', async (req, res) => {
   try {
     const { problem, language, code, testResults, passed } = req.body;
     const completion = await groq.chat.completions.create({
@@ -133,7 +141,7 @@ router.post('/api/evaluate-feedback', async (req, res) => {
 const JUDGE0_URL = process.env.VITE_JUDGE0_URL || 'https://ce.judge0.com';
 const JUDGE0_API_KEY = process.env.VITE_JUDGE0_API_KEY || process.env.JUDGE0_API_KEY || '';
 
-router.post('/api/judge0/submissions', async (req, res) => {
+router.post('/judge0/submissions', async (req, res) => {
   try {
     const response = await fetch(`${JUDGE0_URL}/submissions?base64_encoded=true&wait=false`, {
       method: 'POST',
@@ -151,7 +159,7 @@ router.post('/api/judge0/submissions', async (req, res) => {
   }
 });
 
-router.get('/api/judge0/submissions/:token', async (req, res) => {
+router.get('/judge0/submissions/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const response = await fetch(`${JUDGE0_URL}/submissions/${token}?base64_encoded=true`, {
@@ -166,7 +174,7 @@ router.get('/api/judge0/submissions/:token', async (req, res) => {
   }
 });
 
-router.post('/api/judge0/submissions/batch', async (req, res) => {
+router.post('/judge0/submissions/batch', async (req, res) => {
   try {
     const response = await fetch(`${JUDGE0_URL}/submissions/batch?base64_encoded=true`, {
       method: 'POST',
@@ -183,7 +191,7 @@ router.post('/api/judge0/submissions/batch', async (req, res) => {
   }
 });
 
-router.get('/api/judge0/submissions/batch/status', async (req, res) => {
+router.get('/judge0/submissions/batch/status', async (req, res) => {
   try {
     const { tokens } = req.query;
     const response = await fetch(`${JUDGE0_URL}/submissions/batch?tokens=${tokens}&base64_encoded=true`, {
