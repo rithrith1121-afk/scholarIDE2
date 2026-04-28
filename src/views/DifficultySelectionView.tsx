@@ -15,7 +15,7 @@ export default function DifficultySelectionView({ onSelect, userStats, settings 
           <Sparkles className="w-12 h-12 text-primary" />
         </div>
         
-        <div className="animate-[fade-in-up_0.4s_ease-out_forwards]">
+        <div className="animate-fade-in-up">
           <h1 className="text-4xl md:text-5xl font-headline font-bold text-on-surface">
             Choose Your Path
           </h1>

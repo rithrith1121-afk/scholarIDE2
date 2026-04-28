@@ -6,7 +6,10 @@ export async function generateProblem(difficulty: 'Easy' | 'Intermediate' | 'Har
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ difficulty })
   });
-  if (!response.ok) throw new Error('Failed to generate problem');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate problem');
+  }
   return response.json();
 }
 
@@ -16,7 +19,10 @@ export async function generateHelp(problem: Problem, userCode: string): Promise<
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ problem, userCode })
   });
-  if (!response.ok) throw new Error('Failed to generate help');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate help');
+  }
   const data = await response.json();
   return data.content;
 }
@@ -27,6 +33,9 @@ export async function evaluateCodeFeedback(problem: Problem, language: string, c
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ problem, language, code, passed, testResults })
   });
-  if (!response.ok) throw new Error('Failed to get evaluation feedback');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to get evaluation feedback');
+  }
   return response.json();
 }

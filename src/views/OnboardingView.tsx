@@ -24,7 +24,7 @@ export default function OnboardingView({ onComplete }: OnboardingViewProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-surface-container-high/60 via-surface to-surface p-6">
       {step === 1 ? (
-        <div className="max-w-md w-full bg-surface-container-low border border-outline-variant/20 rounded-2xl p-8 shadow-2xl animate-[fade-in-up_0.4s_ease-out_forwards]">
+        <div className="max-w-md w-full bg-surface-container-low border border-outline-variant/20 rounded-2xl p-8 shadow-2xl animate-fade-in-up">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-xl mb-6">
               <Sparkles className="w-8 h-8 text-primary" />
@@ -125,7 +125,7 @@ export default function OnboardingView({ onComplete }: OnboardingViewProps) {
           </form>
         </div>
       ) : (
-        <div className="max-w-xl w-full text-center space-y-6 animate-[fade-in-up_0.4s_ease-out_forwards]">
+        <div className="max-w-xl w-full text-center space-y-6 animate-fade-in-up">
           <div className="inline-flex items-center justify-center p-4 bg-primary/10 rounded-full mb-2">
             <Sparkles className="w-12 h-12 text-primary" />
           </div>

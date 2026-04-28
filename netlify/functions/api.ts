@@ -38,29 +38,79 @@ export const handler: Handler = async (event) => {
       payload = {
         model: GROQ_MODEL,
         messages: [
-          { role: 'system', content: 'You are a coding problem generator. Return ONLY JSON.' },
-          { role: 'user', content: `Generate a new "${body.difficulty || 'Easy'}" level coding problem.` }
+          {
+            role: 'system',
+            content: `You are a world-class coding problem generator. 
+          Generate a unique, creative, and challenging data structure or algorithmic coding problem.
+          Return ONLY a JSON object that strictly follows this structure:
+          {
+            "title": "string",
+            "difficulty": "${body.difficulty || 'Easy'}",
+            "tags": ["string"],
+            "descriptionHtml": "string (formatted with basic HTML tags like <p>, <strong>, <code>)",
+            "examples": [
+              { "input": "string", "output": "string", "explanation": "string (optional)" }
+            ],
+            "constraints": ["string"],
+            "snippets": {
+              "python": "string", "java": "string", "cpp": "string", "c": "string", "javascript": "string"
+            },
+            "starterCode": {
+              "python": "string", "java": "string", "cpp": "string", "c": "string", "javascript": "string"
+            }
+          }`
+          },
+          {
+            role: 'user',
+            content: `Generate a new "${body.difficulty || 'Easy'}" level coding problem.`
+          }
         ],
-        response_format: { type: 'json_object' }
+        response_format: { type: 'json_object' },
+        temperature: 0.8,
       };
     } else if (path.includes('generate-help')) {
       apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
       payload = {
         model: GROQ_MODEL,
         messages: [
-          { role: 'system', content: 'You are a coding mentor.' },
-          { role: 'user', content: `Help with: ${body.problem?.title}` }
-        ]
+          {
+            role: 'system',
+            content: `You are an expert coding mentor. Provide a detailed algorithm explanation and hints for the provided problem. 
+          Review the user's current code to find potential issues or guide them.
+          Format your response using clean HTML. Use tags like <h3>, <ul>, <li>, <p>, <strong>, <code>. Do not wrap in a markdown code block.`
+          },
+          {
+            role: 'user',
+            content: `Problem Title: ${body.problem?.title}\n\nProblem Description: ${body.problem?.descriptionHtml}\n\nUser's Current Code:\n\`\`\`\n${body.userCode}\n\`\`\``
+          }
+        ],
+        temperature: 0.5,
       };
     } else if (path.includes('evaluate-feedback')) {
       apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
       payload = {
         model: GROQ_MODEL,
         messages: [
-          { role: 'system', content: 'You are an evaluator.' },
-          { role: 'user', content: `Feedback for: ${body.problem?.title}` }
+          {
+            role: 'system',
+            content: `You are a code evaluator. The user's code has already been run against test cases. 
+          You must provide constructive feedback based on the test results.
+          Return ONLY a JSON object:
+          {
+            "feedback": "string (short encouraging message explaining what was good or what went wrong)"
+          }`
+          },
+          {
+            role: 'user',
+            content: `Problem: ${body.problem?.title}
+          Language: ${body.language}
+          Code: \n\`\`\`\n${body.code}\n\`\`\`
+          Passed All Tests?: ${body.passed}
+          Test Results: ${JSON.stringify(body.testResults)}`
+          }
         ],
-        response_format: { type: 'json_object' }
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
       };
     } else if (path.includes('judge0')) {
       // Handle Judge0 proxying

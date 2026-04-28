@@ -97,7 +97,7 @@ body {
   }
 }
 
-.animate-\\[fade-in-up_0\\.4s_ease-out_forwards\\] {
+.animate-fade-in-up {
   animation: fade-in-up 0.4s ease-out forwards;
 }
 
