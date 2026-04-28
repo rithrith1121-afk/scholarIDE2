@@ -3,8 +3,11 @@ import { Handler } from '@netlify/functions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 export const handler: Handler = async (event) => {
-  // Only allow POST
-  if (event.httpMethod !== 'POST' && !event.path.endsWith('/health')) {
+  // Allow POST for API calls, GET for health check and judge0 polling
+  const isAllowedMethod = event.httpMethod === 'POST' 
+    || event.path.endsWith('/health') 
+    || (event.httpMethod === 'GET' && event.path.includes('judge0'));
+  if (!isAllowedMethod) {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
@@ -118,14 +121,31 @@ export const handler: Handler = async (event) => {
       const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY || process.env.VITE_JUDGE0_API_KEY || '';
       
       let targetPath = path.split('judge0')[1];
-      const response = await fetch(`${JUDGE0_URL}${targetPath}${event.queryStringParameters ? '?' + new URLSearchParams(event.queryStringParameters as any).toString() : ''}`, {
+      const fetchOptions: any = {
         method: event.httpMethod,
-        headers: { 'Content-Type': 'application/json', 'X-RapidAPI-Key': JUDGE0_API_KEY },
-        body: event.body
-      });
+        headers: {
+          'Content-Type': 'application/json',
+          ...(JUDGE0_API_KEY ? { 'X-RapidAPI-Key': JUDGE0_API_KEY, 'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com' } : {})
+        },
+      };
+      // Only include body for POST requests
+      if (event.httpMethod === 'POST' && event.body) {
+        fetchOptions.body = event.body;
+      }
+      const queryString = event.queryStringParameters 
+        ? '?' + new URLSearchParams(event.queryStringParameters as any).toString() 
+        : '';
+      // Add base64_encoded param if not already present
+      const separator = queryString ? '&' : '?';
+      const base64Param = queryString.includes('base64_encoded') ? '' : `${separator}base64_encoded=true`;
+      const targetUrl = `${JUDGE0_URL}${targetPath}${queryString}${base64Param}`;
+      
+      const response = await fetch(targetUrl, fetchOptions);
+      const responseText = await response.text();
       return {
         statusCode: response.status,
-        body: JSON.stringify(await response.json())
+        headers: { 'Content-Type': 'application/json' },
+        body: responseText
       };
     }
 
