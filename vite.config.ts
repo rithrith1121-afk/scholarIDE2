@@ -1,16 +1,17 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
-import express from 'express';
+import { defineConfig } from 'vite';
 
-// We import dynamically or directly. We will directly import it.
-import apiRouter from './src/server/api';
-
+// Express plugin for local dev server only — uses dynamic import
+// so src/server/api.ts (which initializes Groq SDK) is NOT loaded during production build
 function expressPlugin() {
   return {
     name: 'express-plugin',
-    configureServer(server: any) {
+    async configureServer(server: any) {
+      // Dynamic import ensures these only load during dev, not during `vite build`
+      const express = (await import('express')).default;
+      const { default: apiRouter } = await import('./src/server/api');
       const app = express();
       app.use(express.json());
       app.use('/api', apiRouter);
@@ -19,18 +20,15 @@ function expressPlugin() {
   };
 }
 
-export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
-  return {
-    plugins: [react(), tailwindcss(), expressPlugin()],
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
+export default defineConfig({
+  plugins: [react(), tailwindcss(), expressPlugin()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.'),
     },
-    server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      hmr: process.env.DISABLE_HMR !== 'true',
-    },
-  };
+  },
+  server: {
+    // HMR is disabled in AI Studio via DISABLE_HMR env var.
+    hmr: process.env.DISABLE_HMR !== 'true',
+  },
 });
