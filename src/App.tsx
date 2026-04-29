@@ -232,9 +232,14 @@ export default function App() {
       if (isPassed) {
         setCurrentView('history');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submission error:', error);
-      showToast('Failed to evaluate solution. Please try again.', 'error');
+      const isLimitError = error.message?.includes('limit reached') || error.message?.includes('429');
+      if (isLimitError) {
+        setErrors("⚠️ JDoodle Daily Limit Reached (20 runs/day).\n\nYou've exhausted the free credits for today. To continue:\n1. Wait 24 hours for credits to reset.\n2. Or, update your JDOODLE_CLIENT_ID in .env with a new free account.");
+        setActiveTab('errors');
+      }
+      showToast(isLimitError ? 'API Limit Reached' : 'Failed to evaluate solution.', 'error');
     } finally {
       setIsRunning(false);
     }
@@ -278,7 +283,11 @@ export default function App() {
 
     } catch (error: any) {
       console.error('Execution error:', error);
-      setErrors(`An error occurred during sandbox execution: ${error.message}`);
+      const isLimitError = error.message?.includes('limit reached') || error.message?.includes('429');
+      setErrors(isLimitError 
+        ? "⚠️ JDoodle Daily Limit Reached (20 runs/day).\n\nYou've exhausted the free credits for today. To continue:\n1. Wait 24 hours for credits to reset.\n2. Or, update your JDOODLE_CLIENT_ID in .env with a new free account."
+        : `An error occurred during sandbox execution: ${error.message}`
+      );
       setActiveTab('errors');
     } finally {
       setIsRunning(false);
