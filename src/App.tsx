@@ -171,8 +171,12 @@ export default function App() {
       const batchResults = await executeBatch(userCode, settings.language, inputs);
       
       const mappedResults: TestCaseResult[] = batchResults.map((res, i) => {
-        const expected = problemData.examples[i].output;
-        const passed = res.actualOutput.trim() === expected.trim();
+        const expected = problemData.examples[i].output.trim();
+        const actualLines = res.actualOutput.trim().split('\n');
+        // Take the last non-empty line as the final result (ignores debug prints above)
+        const lastOutputLine = actualLines[actualLines.length - 1]?.trim() || '';
+        
+        const passed = lastOutputLine.toLowerCase() === expected.toLowerCase();
         return { ...res, expectedOutput: expected, passed };
       });
       
@@ -251,10 +255,11 @@ export default function App() {
       
       let fullOutput = '';
       const mappedResults: TestCaseResult[] = batchResults.map((res, i) => {
-        const expected = problemData.examples[i].output;
-        // Basic string comparison for Pass/Fail in the Run view
-        // AI will still handle the more nuanced 'Submit' evaluation
-        const passed = res.actualOutput.trim() === expected.trim();
+        const expected = problemData.examples[i].output.trim();
+        const actualLines = res.actualOutput.trim().split('\n');
+        const lastOutputLine = actualLines[actualLines.length - 1]?.trim() || '';
+        
+        const passed = lastOutputLine.toLowerCase() === expected.toLowerCase();
         
         fullOutput += `> CASE ${i + 1}\n`;
         fullOutput += `Input:    ${res.input}\n`;

@@ -245,7 +245,7 @@ export default function ProblemView({
                         </div>
                         <div className="col-span-2">
                           <div className="text-outline-variant mb-1">Actual Output</div>
-                          <div className={`px-2 py-1 rounded font-mono ${result.passed ? 'bg-secondary/10 text-secondary' : 'bg-error/10 text-error'}`}>
+                          <div className={`px-2 py-1 rounded font-mono whitespace-pre-wrap ${result.passed ? 'bg-secondary/10 text-secondary' : 'bg-error/10 text-error'}`}>
                             {result.actualOutput || (result.passed ? result.expectedOutput : 'No output')}
                           </div>
                         </div>

@@ -58,7 +58,11 @@ export const handler: Handler = async (event) => {
               "python": "string", "java": "string", "cpp": "string", "c": "string", "javascript": "string"
             },
             "starterCode": {
-              "python": "string", "java": "string", "cpp": "string", "c": "string", "javascript": "string"
+              "python": "string (including a function definition and a driver at the bottom that reads from sys.stdin and prints the result)", 
+              "java": "string (including a Main class with a main method that reads from Scanner(System.in) and prints the result)", 
+              "cpp": "string (including a main function that reads from cin and prints the result)", 
+              "c": "string (including a main function that reads from stdin and prints the result)", 
+              "javascript": "string (including a driver that reads from fs.readFileSync(0) and prints the result)"
             }
           }`
           },
