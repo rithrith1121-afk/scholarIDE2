@@ -3,10 +3,9 @@ import { Handler } from '@netlify/functions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 export const handler: Handler = async (event) => {
-  // Allow POST for API calls, GET for health check and judge0 polling
+  // Allow POST for API calls, GET for health check
   const isAllowedMethod = event.httpMethod === 'POST' 
-    || event.path.endsWith('/health') 
-    || (event.httpMethod === 'GET' && event.path.includes('judge0'));
+    || event.path.endsWith('/health');
   if (!isAllowedMethod) {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -115,37 +114,37 @@ export const handler: Handler = async (event) => {
         response_format: { type: 'json_object' },
         temperature: 0.1,
       };
-    } else if (path.includes('judge0')) {
-      // Handle Judge0 proxying
-      const JUDGE0_URL = process.env.JUDGE0_URL || process.env.VITE_JUDGE0_URL || 'https://ce.judge0.com';
-      const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY || process.env.VITE_JUDGE0_API_KEY || '';
+    } else if (path.includes('jdoodle')) {
+      // Handle JDoodle API proxying
+      const JDOODLE_CLIENT_ID = process.env.JDOODLE_CLIENT_ID || '';
+      const JDOODLE_CLIENT_SECRET = process.env.JDOODLE_CLIENT_SECRET || '';
       
-      let targetPath = path.split('judge0')[1];
-      const fetchOptions: any = {
-        method: event.httpMethod,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(JUDGE0_API_KEY ? { 'X-RapidAPI-Key': JUDGE0_API_KEY, 'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com' } : {})
-        },
-      };
-      // Only include body for POST requests
-      if (event.httpMethod === 'POST' && event.body) {
-        fetchOptions.body = event.body;
+      if (!JDOODLE_CLIENT_ID || !JDOODLE_CLIENT_SECRET) {
+        return {
+          statusCode: 500,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'JDoodle API credentials are not configured in environment variables.' })
+        };
       }
-      const queryString = event.queryStringParameters 
-        ? '?' + new URLSearchParams(event.queryStringParameters as any).toString() 
-        : '';
-      // Add base64_encoded param if not already present
-      const separator = queryString ? '&' : '?';
-      const base64Param = queryString.includes('base64_encoded') ? '' : `${separator}base64_encoded=true`;
-      const targetUrl = `${JUDGE0_URL}${targetPath}${queryString}${base64Param}`;
+
+      // Inject server-side credentials into the request
+      const jdoodlePayload = {
+        ...body,
+        clientId: JDOODLE_CLIENT_ID,
+        clientSecret: JDOODLE_CLIENT_SECRET,
+      };
       
-      const response = await fetch(targetUrl, fetchOptions);
+      const response = await fetch('https://api.jdoodle.com/v1/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jdoodlePayload),
+      });
+
       const responseText = await response.text();
       return {
         statusCode: response.status,
         headers: { 'Content-Type': 'application/json' },
-        body: responseText
+        body: responseText,
       };
     }
 

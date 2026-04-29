@@ -13,7 +13,7 @@ import SettingsView from './views/SettingsView';
 import OnboardingView from './views/OnboardingView';
 import { ToastContainer, ToastType } from './components/Toast';
 import { generateProblem, generateHelp, evaluateCodeFeedback } from './services/groqService';
-import { executeCode as executeCodeJudge0, executeBatch as executeBatchJudge0 } from './services/judge0Service';
+import { executeCode, executeBatch } from './services/codeExecutionService';
 import { Problem, HistoryItem, Settings, defaultSettings, UserStats, defaultUserStats, TestCaseResult } from './types';
 import { Loader2 } from 'lucide-react';
 
@@ -166,9 +166,9 @@ export default function App() {
     setTestResults([]);
     
     try {
-      // 1. Strict Deterministic Evaluation using Judge0 Sandbox
+      // 1. Strict Deterministic Evaluation using Piston Sandbox
       const inputs = problemData.examples.map(ex => ex.input);
-      const batchResults = await executeBatchJudge0(userCode, settings.language, inputs);
+      const batchResults = await executeBatch(userCode, settings.language, inputs);
       
       const mappedResults: TestCaseResult[] = batchResults.map((res, i) => {
         const expected = problemData.examples[i].output;
@@ -247,7 +247,7 @@ export default function App() {
 
     try {
       const inputs = problemData.examples.map(ex => ex.input);
-      const batchResults = await executeBatchJudge0(userCode, settings.language, inputs);
+      const batchResults = await executeBatch(userCode, settings.language, inputs);
       
       let fullOutput = '';
       const mappedResults: TestCaseResult[] = batchResults.map((res, i) => {
