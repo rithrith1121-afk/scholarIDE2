@@ -171,10 +171,9 @@ export default function App() {
       const batchResults = await executeBatch(userCode, settings.language, inputs);
       
       const mappedResults: TestCaseResult[] = batchResults.map((res, i) => {
-        const expected = problemData.examples[i].output.trim();
+        const expected = problemData.examples[i].output.trim().replace(/^["']|["']$/g, '');
         const actualLines = res.actualOutput.trim().split('\n');
-        // Take the last non-empty line as the final result (ignores debug prints above)
-        const lastOutputLine = actualLines[actualLines.length - 1]?.trim() || '';
+        const lastOutputLine = actualLines[actualLines.length - 1]?.trim().replace(/^["']|["']$/g, '') || '';
         
         const passed = lastOutputLine.toLowerCase() === expected.toLowerCase();
         return { ...res, expectedOutput: expected, passed };
@@ -255,9 +254,9 @@ export default function App() {
       
       let fullOutput = '';
       const mappedResults: TestCaseResult[] = batchResults.map((res, i) => {
-        const expected = problemData.examples[i].output.trim();
+        const expected = problemData.examples[i].output.trim().replace(/^["']|["']$/g, '');
         const actualLines = res.actualOutput.trim().split('\n');
-        const lastOutputLine = actualLines[actualLines.length - 1]?.trim() || '';
+        const lastOutputLine = actualLines[actualLines.length - 1]?.trim().replace(/^["']|["']$/g, '') || '';
         
         const passed = lastOutputLine.toLowerCase() === expected.toLowerCase();
         

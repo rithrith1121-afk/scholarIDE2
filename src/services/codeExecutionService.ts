@@ -116,8 +116,11 @@ export async function executeBatch(
         errorOutput = result.error;
       } else if (result.statusCode === 200) {
         actualOutput = rawOutput.trim();
+        if (actualOutput === '') {
+          errorOutput = 'No output: Did you forget to call your function or print the result?';
+        }
       } else {
-        errorOutput = rawOutput.trim();
+        errorOutput = rawOutput.trim() || 'Execution failed with non-zero status code.';
       }
 
       return {
