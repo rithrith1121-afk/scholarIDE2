@@ -84,43 +84,83 @@ export async function executeBatch(
   language: Settings['language'],
   inputs: string[]
 ): Promise<TestCaseResult[]> {
-  try {
-    const langConfig = LANGUAGE_MAP[language];
-
-    // OPTIMIZATION: Bundle Python test cases into a single request to save credits
-    if (language === 'python' && inputs.length > 1) {
-      const delimiter = "---SANDBOX_CASE_DELIMITER---";
-      const bundledCode = `
+  // Optimization: For Python and JS, we can bundle all test cases into ONE request to save JDoodle credits
+  if (language === 'python' || language === 'javascript') {
+    try {
+      const langConfig = LANGUAGE_MAP[language];
+      const delimiter = "---SCHOLAR_CASE_DIVIDER---";
+      
+      let bundledScript = "";
+      if (language === 'python') {
+        bundledScript = `
 import sys
 import io
 
-# --- USER CODE START ---
-${code}
-# --- USER CODE END ---
+def __scholar_run_test_cases():
+    test_cases = ${JSON.stringify(inputs)}
+    user_code = ${JSON.stringify(code)}
+    
+    # Define the user's code in the local scope
+    local_scope = {}
+    exec(user_code, local_scope)
+    
+    # Try to find a solution function
+    solution_func = None
+    for name, obj in local_scope.items():
+        if callable(obj) and not name.startswith('__'):
+            solution_func = obj
+            break
+            
+    for i, tc_input in enumerate(test_cases):
+        print("${delimiter}")
+        # Mock stdin for the user's code if it uses input()
+        sys.stdin = io.StringIO(tc_input)
+        
+        try:
+            # If we found a function, call it. Otherwise just execute the whole script again with mocked stdin
+            if solution_func:
+                # Try to parse input if it's multiple arguments (comma separated)
+                try:
+                    args = [eval(a.strip()) for a in tc_input.split(',')]
+                    result = solution_func(*args)
+                except:
+                    result = solution_func(tc_input)
+                if result is not None:
+                    print(result)
+            else:
+                exec(user_code, local_scope)
+        except Exception as e:
+            print(f"Error in Case {i+1}: {str(e)}")
 
-test_inputs = ${JSON.stringify(inputs)}
-delimiter = "${delimiter}"
-
-for i, inp in enumerate(test_inputs):
-    print(f"{delimiter} {i}")
-    sys.stdin = io.StringIO(inp)
-    try:
-        # We need to re-run the code or call the solution
-        # This is a simple approximation: we just re-execute the logic
-        # For full accuracy, we'd need to wrap it more carefully
-        exec(compile(${JSON.stringify(code)}, '<string>', 'exec'), globals())
-    except Exception as e:
-        print(f"Runtime Error: {e}", file=sys.stderr)
+__scholar_run_test_cases()
 `;
+      } else if (language === 'javascript') {
+        bundledScript = `
+const testCases = ${JSON.stringify(inputs)};
+const userCode = ${JSON.stringify(code)};
+
+testCases.forEach((tc, i) => {
+  console.log("${delimiter}");
+  try {
+    // Basic JS execution wrap
+    const script = new Function('input', userCode + "\\n return typeof solution !== 'undefined' ? solution(input) : undefined;");
+    const result = script(tc);
+    if (result !== undefined) console.log(result);
+  } catch (e) {
+    console.log("Error in Case " + (i+1) + ": " + e.message);
+  }
+});
+`;
+      }
 
       const response = await fetch('/api/jdoodle/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          script: bundledCode,
+          script: bundledScript,
           language: langConfig.language,
           versionIndex: langConfig.versionIndex,
-          stdin: '',
+          stdin: "", // Inputs are bundled in the script
         }),
       });
 
@@ -135,24 +175,28 @@ for i, inp in enumerate(test_inputs):
       const result: JDoodleResult = await response.json();
       const rawOutput = result.output || '';
       
-      // Split the bundled output back into individual results
-      const cases = rawOutput.split(delimiter).filter(c => c.trim().length > 0);
-      
+      // Split output by delimiter
+      const caseOutputs = rawOutput.split(delimiter).slice(1); // First element is empty or header
+
       return inputs.map((input, i) => {
-        // Find the output for case i (it might have "i" index after the delimiter)
-        const caseOutput = cases.find(c => c.trim().startsWith(i.toString())) || '';
-        const actualOutput = caseOutput.replace(/^\\d+\\s+/, '').trim();
-        
+        const actualOutput = (caseOutputs[i] || '').trim();
         return {
           input,
-          expectedOutput: '',
+          expectedOutput: '', 
           actualOutput: actualOutput || (result.statusCode !== 200 ? rawOutput : 'No output'),
           passed: false,
         };
       });
+    } catch (error: any) {
+      console.error('Bundled Execution Error:', error);
+      // Fallback to parallel if bundling fails
     }
+  }
 
-    // Default: Parallel requests (costs 1 credit per test case)
+  // Fallback / Parallel execution for other languages or if bundling fails
+  try {
+    const langConfig = LANGUAGE_MAP[language];
+
     const promises = inputs.map(async (input) => {
       const response = await fetch('/api/jdoodle/execute', {
         method: 'POST',
@@ -165,13 +209,13 @@ for i, inp in enumerate(test_inputs):
         }),
       });
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('Daily execution limit reached (20 credits/day). Please try again in 24 hours or check your JDoodle dashboard.');
-        }
-        const errText = await response.text();
-        throw new Error(`API returned ${response.status}: ${errText}`);
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Daily execution limit reached (20 credits/day). Please try again in 24 hours or check your JDoodle dashboard.');
       }
+      const errText = await response.text();
+      throw new Error(`API returned ${response.status}: ${errText}`);
+    }
 
       const result: JDoodleResult = await response.json();
       return { input, result };
