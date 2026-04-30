@@ -236,7 +236,7 @@ export default function App() {
       console.error('Submission error:', error);
       const isLimitError = error.message?.includes('limit reached') || error.message?.includes('429');
       if (isLimitError) {
-        setErrors("⚠️ JDoodle Daily Limit Reached (20 runs/day).\n\nYou've exhausted the free credits for today. To continue:\n1. Wait 24 hours for credits to reset.\n2. Or, update your JDOODLE_CLIENT_ID in .env with a new free account.");
+        setErrors("server is under the maintenance process");
         setActiveTab('errors');
       }
       showToast(isLimitError ? 'API Limit Reached' : 'Failed to evaluate solution.', 'error');
@@ -285,7 +285,7 @@ export default function App() {
       console.error('Execution error:', error);
       const isLimitError = error.message?.includes('limit reached') || error.message?.includes('429');
       if (isLimitError) {
-        setErrors("⚠️ JDoodle Daily Limit Reached (20 runs/day).\n\nYou've exhausted the free credits for today. To continue:\n1. Wait 24 hours for credits to reset.\n2. Or, update your JDOODLE_CLIENT_ID in .env with a new free account.");
+        setErrors("server is under the maintenance process");
       } else {
         setErrors(`An error occurred during sandbox execution: ${error.message}`);
       }

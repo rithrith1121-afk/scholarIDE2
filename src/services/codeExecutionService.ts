@@ -42,7 +42,7 @@ export async function executeCode(
 
     if (!response.ok) {
       if (response.status === 429) {
-        throw new Error('Daily execution limit reached (20 credits/day). Please try again in 24 hours or check your JDoodle dashboard.');
+        throw new Error('server is under the maintenance process');
       }
       const errText = await response.text();
       throw new Error(`API returned ${response.status}: ${errText}`);
@@ -166,7 +166,7 @@ testCases.forEach((tc, i) => {
 
       if (!response.ok) {
         if (response.status === 429) {
-          throw new Error('Daily execution limit reached (20 credits/day). Please try again in 24 hours or check your JDoodle dashboard.');
+          throw new Error('server is under the maintenance process');
         }
         const errText = await response.text();
         throw new Error(`API returned ${response.status}: ${errText}`);
@@ -211,7 +211,7 @@ testCases.forEach((tc, i) => {
 
     if (!response.ok) {
       if (response.status === 429) {
-        throw new Error('Daily execution limit reached (20 credits/day). Please try again in 24 hours or check your JDoodle dashboard.');
+        throw new Error('server is under the maintenance process');
       }
       const errText = await response.text();
       throw new Error(`API returned ${response.status}: ${errText}`);
